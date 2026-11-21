@@ -12,12 +12,18 @@
   *{box-sizing:border-box}
   body{margin:0;background:var(--paper);color:var(--ink);
     font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:15px}
+  body:not(.authenticated) header,body:not(.authenticated) main,body:not(.authenticated) .modal,body:not(.authenticated) .toast{display:none!important}
+  .login-screen{min-height:100vh;display:grid;place-items:center;padding:20px}
+  .login-card{width:min(100%,380px);background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:24px}
+  .login-error{min-height:20px;margin:8px 0;color:var(--danger);font-size:13px}
+  .authenticated .login-screen{display:none}
   header{background:var(--ink);color:#fff;position:sticky;top:0;z-index:20}
   .bar{width:100%;margin:0 auto;display:flex;align-items:center;gap:20px;padding:0 16px}
   .brand{font-weight:700;font-size:17px;padding:14px 0}
   nav{display:flex;gap:4px;margin-left:auto}
   nav button{background:none;border:0;color:#b9c4cf;padding:16px 14px;font:inherit;font-weight:600;cursor:pointer;border-bottom:3px solid transparent}
   nav button.on{color:#fff;border-bottom-color:#5eead4}
+  .logout-btn{margin-left:10px;padding:8px 12px;color:#fff;border:1px solid #6b7683}
   main{width:100%;margin:0 auto;padding:18px 16px 80px}
   section{display:none}
   section.on{display:block}
@@ -109,12 +115,22 @@
 </style>
 </head>
 <body>
+<div class="login-screen" id="loginScreen">
+  <form class="login-card" id="loginForm">
+    <h2 style="margin:0 0 16px">Stock Login</h2>
+    <label for="loginPassword">Password</label>
+    <input type="password" id="loginPassword" autocomplete="current-password" required>
+    <div class="login-error" id="loginError" role="alert"></div>
+    <button class="btn" id="loginBtn" type="submit" style="width:100%">Login</button>
+  </form>
+</div>
 <header><div class="bar">
   <div class="brand">Stock</div>
   <nav>
     <button class="on" data-tab="add">Add Stock</button>
     <button data-tab="list">Stock List</button>
   </nav>
+  <button class="logout-btn" id="logoutBtn" type="button">Logout</button>
 </div></header>
 
 <main>
@@ -237,6 +253,7 @@
 <div class="toast" id="toast"></div>
 
 <script>
+const API_BASE_URL = 'https://YOUR-RENDER-SERVICE.onrender.com';
 const $ = (id) => document.getElementById(id);
 let items = [];
 let found = [];            // products returned by Shopify
@@ -257,11 +274,67 @@ function toast(msg, err){
   clearTimeout(toast.t); toast.t=setTimeout(()=>t.style.display='none',3500);
 }
 async function api(url, opts){
-  const r = await fetch(url, Object.assign({cache:'no-store'}, opts));
+  const headers = new Headers(opts?.headers || {});
+  const token = sessionStorage.getItem('stockAuthToken');
+  if(token) headers.set('Authorization','Bearer '+token);
+  const r = await fetch(API_BASE_URL.replace(/\/$/,'')+url, Object.assign({cache:'no-store'}, opts, {headers}));
   const j = await r.json().catch(()=>({}));
+  if(r.status===401){
+    logout();
+  }
   if(!r.ok) throw new Error(j.error||'Something went wrong');
   return j;
 }
+function setLoginError(message){ $('loginError').textContent=message; }
+function logout(){
+  sessionStorage.removeItem('stockAuthToken');
+  document.body.classList.remove('authenticated');
+  $('loginPassword').value='';
+  setLoginError('');
+  items=[];
+  found=[];
+  $('rows').innerHTML='';
+  $('listStatus').textContent='';
+  $('picks').innerHTML='';
+}
+$('loginForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  if(API_BASE_URL.includes('YOUR-RENDER-SERVICE')){
+    setLoginError('Set API_BASE_URL to your Render service URL first.');
+    return;
+  }
+  const button=$('loginBtn');
+  button.disabled=true;
+  setLoginError('');
+  try{
+    const response=await fetch(API_BASE_URL.replace(/\/$/,'')+'/api/login',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({password:$('loginPassword').value}),
+      cache:'no-store'
+    });
+    const result=await response.json().catch(()=>({}));
+    if(!response.ok) throw new Error(result.error||'Login failed');
+    sessionStorage.setItem('stockAuthToken',result.token);
+    $('loginPassword').value='';
+    document.body.classList.add('authenticated');
+  }catch(error){
+    setLoginError(error.message);
+  }finally{
+    button.disabled=false;
+  }
+});
+$('logoutBtn').addEventListener('click',logout);
+async function restoreSession(){
+  if(!sessionStorage.getItem('stockAuthToken')) return;
+  try{
+    await api('/api/auth/verify');
+    document.body.classList.add('authenticated');
+  }catch{
+    logout();
+  }
+}
+restoreSession();
 function openModal(id){ $(id).classList.add('open'); }
 function closeModal(id){ $(id).classList.remove('open'); }
 
