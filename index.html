@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stock</title>
+<style>
+  :root{
+    --ink:#1b2530; --muted:#6b7683; --paper:#f4f6f5; --card:#ffffff; --line:#dde3e1;
+    --accent:#0f766e; --accent-ink:#ffffff; --danger:#b42318; --warn:#b45309; --radius:10px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:15px}
+  header{background:var(--ink);color:#fff;position:sticky;top:0;z-index:20}
+  .bar{width:100%;margin:0 auto;display:flex;align-items:center;gap:20px;padding:0 16px}
+  .brand{font-weight:700;font-size:17px;padding:14px 0}
+  nav{display:flex;gap:4px;margin-left:auto}
+  nav button{background:none;border:0;color:#b9c4cf;padding:16px 14px;font:inherit;font-weight:600;cursor:pointer;border-bottom:3px solid transparent}
+  nav button.on{color:#fff;border-bottom-color:#5eead4}
+  main{width:100%;margin:0 auto;padding:18px 16px 80px}
+  section{display:none}
+  section.on{display:block}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px}
+  label{display:block;font-weight:600;font-size:13px;margin-bottom:5px}
+  input,button{font:inherit}
+  input[type=text],input[type=file]{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
+  input:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  .row{display:flex;gap:8px}
+  .search-row{display:flex;align-items:flex-end;gap:10px}
+  .search-field{flex:1;min-width:0}
+  .search-field label{margin-bottom:6px}
+  .search-input{min-width:0}
+  .search-button{height:42px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap}
+  .search-button svg{width:16px;height:16px}
+  .auto-toggle{display:inline-flex;align-items:center;gap:6px;height:42px;padding:0 12px;margin:0;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:12px;white-space:nowrap;cursor:pointer}
+  .auto-toggle input{width:auto;margin:0}
+  .auto-toggle input[type=checkbox]{accent-color:var(--accent)}
+  .detail-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+  .stock-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  .form-stack{display:grid;gap:18px}
+  .field label{margin-bottom:6px}
+  .btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:8px;padding:11px 18px;font-weight:600;cursor:pointer}
+  .btn:disabled{opacity:.55;cursor:wait}
+  .btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+  .btn.danger{background:var(--danger)}
+  .note{font-size:13px;color:var(--muted);margin-top:6px}
+  #lookupNote:empty{display:none}
+  .found{color:var(--accent)} .miss{color:var(--warn)}
+  .preview{display:flex;gap:14px;align-items:center}
+  .thumb{width:64px;aspect-ratio:2/3;object-fit:cover;border-radius:6px;border:1px solid var(--line);background:#eef1f0;display:block}
+  .ph{width:64px;aspect-ratio:2/3;border-radius:6px;border:1px dashed var(--line);display:grid;place-items:center;color:var(--muted);font-size:11px;text-align:center}
+  table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}
+  th{background:#eaeeed;font-size:12px;color:var(--muted)}
+  tr:last-child td{border-bottom:0}
+  td img.thumb{width:40px;cursor:pointer}
+  .qty{font-weight:700}
+  .qty.zero{color:var(--danger)}
+  .tablewrap{overflow-x:auto}
+  .menu{position:relative;display:inline-block}
+  .menu>button{background:none;border:1px solid var(--line);border-radius:6px;width:32px;height:32px;cursor:pointer;font-size:18px;line-height:1}
+  .pop{position:absolute;right:0;top:36px;background:#fff;border:1px solid var(--line);border-radius:8px;min-width:120px;box-shadow:0 8px 24px rgba(0,0,0,.14);z-index:10;display:none;overflow:hidden}
+  .pop.open{display:block}
+  .pop button{display:block;width:100%;text-align:left;background:none;border:0;padding:10px 14px;cursor:pointer;font-size:14px}
+  .pop button:hover{background:var(--paper)}
+  .pop .del{color:var(--danger)}
+  .view{background:none;border:1px solid var(--line);border-radius:6px;padding:5px 9px;cursor:pointer;font-size:12px}
+  .modal{position:fixed;inset:0;background:rgba(15,23,30,.55);display:none;align-items:center;justify-content:center;padding:16px;z-index:50}
+  .modal.open{display:flex}
+  .modal.image-modal{padding:0;background:rgba(0,0,0,.94)}
+  .sheet{background:#fff;border-radius:12px;max-width:460px;width:100%;max-height:92vh;overflow:auto;padding:18px}
+  .sheet.wide{max-width:640px}
+  .sheet.image-sheet{position:relative;display:flex;align-items:center;justify-content:center;width:100%;height:100%;max-width:none;max-height:none;padding:0;border-radius:0;background:transparent;overflow:hidden}
+  .image-sheet #viewBody{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+  .full-image{display:block;max-width:100vw;max-height:100vh;width:auto;height:auto;object-fit:contain}
+  .image-close{position:fixed;top:16px;right:16px;width:42px;height:42px;padding:0;border:0;border-radius:50%;background:rgba(255,255,255,.92);color:var(--ink);font-size:28px;line-height:1;cursor:pointer;z-index:51}
+  .picks{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;margin:14px 0}
+  .pick{border:2px solid var(--line);border-radius:10px;padding:8px;background:#fff;cursor:pointer;text-align:left}
+  .pick:hover,.pick:focus-visible{border-color:var(--accent)}
+  .pick img,.pick .ph{width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:6px;display:block;background:#eef1f0}
+  .pick .t{font-weight:600;font-size:13px;margin-top:7px;line-height:1.3}
+  .pick .s{font-size:12px;color:var(--muted)}
+  .imgrow{display:flex;align-items:flex-start;gap:12px}
+  .addimg{width:64px;aspect-ratio:2/3;border:2px dashed var(--line);border-radius:6px;background:#fff;color:var(--accent);font-size:28px;cursor:pointer;line-height:1}
+  .addimg:hover{border-color:var(--accent)}
+  .chip{position:relative;display:inline-block}
+  .chip .x{position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;border:0;background:var(--danger);color:#fff;font-size:13px;line-height:20px;padding:0;cursor:pointer}
+  .acts{display:flex;flex-direction:column;align-items:center;gap:1px}
+  .a{border:0;background:transparent;border-radius:0;padding:0;font-size:13px;cursor:pointer;line-height:1.1;text-align:center}
+  .a.sale{color:var(--accent)}
+  .a.add{color:var(--ink)}
+  .a.del{color:var(--danger)}
+  .a:hover{text-decoration:underline}
+  .action-cell{padding:2px 6px}
+  .action-heading{text-align:center}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:11px 18px;border-radius:8px;display:none;z-index:99;max-width:90vw}
+  .toast.err{background:var(--danger)}
+  .empty{padding:40px;text-align:center;color:var(--muted)}
+  .list-status{padding:14px;text-align:center;color:var(--muted);font-size:13px}
+  @media (max-width:700px){
+    .detail-grid,.stock-grid{grid-template-columns:1fr}
+    .brand{display:none}
+    nav{margin:0;width:100%}
+    nav button{flex:1}
+    .hide-m{display:none}
+    th,td{padding:8px 6px}
+  }
+</style>
+</head>
+<body>
+<header><div class="bar">
+  <div class="brand">Stock</div>
+  <nav>
+    <button class="on" data-tab="add">Add Stock</button>
+    <button data-tab="list">Stock List</button>
+  </nav>
+</div></header>
+
+<main>
+  <!-- ADD STOCK -->
+  <section id="add" class="on">
+    <div class="card">
+      <div class="form-stack">
+        <div class="search-row">
+          <div class="search-field">
+            <label for="search">Search</label>
+            <input class="search-input" type="text" id="search" placeholder="SKU or Product Type" autocomplete="off">
+          </div>
+          <button type="button" class="btn search-button" id="searchBtn" aria-label="Search Shopify">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+            <span>Search</span>
+          </button>
+          <label class="auto-toggle" for="autoScan"><input type="checkbox" id="autoScan"> Auto</label>
+        </div>
+        <div class="note" id="lookupNote"></div>
+
+        <div>
+          <label>Choose Image</label>
+          <div class="imgrow">
+            <button type="button" class="addimg" id="pickImg" aria-label="Choose image" title="Choose image">+</button>
+            <div id="imgBox"></div>
+          </div>
+          <input type="file" id="file" accept="image/*" hidden>
+        </div>
+
+        <div class="detail-grid">
+          <div class="field">
+            <label for="ptype">Product Type</label>
+            <input type="text" id="ptype" placeholder="Product Type" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="sku">SKU</label>
+            <input type="text" id="sku" placeholder="SKU" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="vendor">Vendor</label>
+            <input type="text" id="vendor" placeholder="Vendor name">
+          </div>
+          <div class="field">
+            <label for="variant">Variant</label>
+            <input type="text" id="variant" placeholder="Optional" autocomplete="off">
+          </div>
+        </div>
+
+        <div class="stock-grid">
+          <div class="field">
+            <label for="packet">Packet Number</label>
+            <input type="text" id="packet" inputmode="numeric" pattern="[0-9]*" placeholder="Numbers only">
+          </div>
+          <div class="field">
+            <label for="qty">Qty</label>
+            <input type="text" id="qty" inputmode="numeric" pattern="[0-9]*" placeholder="Numbers only">
+          </div>
+        </div>
+
+        <div>
+          <button class="btn" id="saveBtn">Save Stock</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STOCK LIST -->
+  <section id="list">
+    <div style="margin-bottom:12px">
+      <input type="text" id="q" placeholder="Search by SKU, Product Name or Brand" autocomplete="off">
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr>
+          <th>SKU</th><th>Product Name</th><th class="hide-m">Brand</th><th>Packet No</th>
+          <th>Image</th><th>Qty</th><th>Variant</th><th class="action-heading">Action</th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <div id="listStatus" class="list-status" aria-live="polite"></div>
+  </section>
+</main>
+
+<!-- Product picker (same SKU, several products) -->
+<div class="modal" id="pickModal"><div class="sheet wide">
+  <h3 style="margin:0">Select a product</h3>
+  <div class="note" id="pickNote"></div>
+  <div class="picks" id="picks"></div>
+  <button class="btn ghost" style="width:100%" onclick="closeModal('pickModal')">Cancel</button>
+</div></div>
+
+<!-- Full-screen image viewer -->
+<div class="modal image-modal" id="viewModal"><div class="sheet image-sheet">
+  <button type="button" class="image-close" onclick="closeModal('viewModal')" aria-label="Close image">&times;</button>
+  <div id="viewBody"></div>
+</div></div>
+
+<!-- Add qty modal -->
+<div class="modal" id="addModal"><div class="sheet">
+  <h3 style="margin-top:0">Add Stock</h3>
+  <label for="addQty">How many to add?</label>
+  <input type="text" id="addQty" inputmode="numeric" pattern="[0-9]*" placeholder="Numbers only">
+  <div class="row" style="margin-top:14px">
+    <button class="btn" id="addOk" style="flex:1">Add</button>
+    <button class="btn ghost" style="flex:1" onclick="closeModal('addModal')">Cancel</button>
+  </div>
+</div></div>
+
+<!-- Delete modal -->
+<div class="modal" id="delModal"><div class="sheet">
+  <h3 style="margin-top:0">Delete this stock?</h3>
+  <p id="delText" style="color:var(--muted)"></p>
+  <div class="row">
+    <button class="btn danger" id="delOk" style="flex:1">Delete</button>
+    <button class="btn ghost" style="flex:1" onclick="closeModal('delModal')">Cancel</button>
+  </div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let items = [];
+let found = [];            // products returned by Shopify
+let shopifyImage = '';
+let shopifyThumbnail = '';
+let localPreview = '';
+let current = null;
+let autoNormalizedSku = '';
+const stockPageSize = 50;
+let stockOffset = 0;
+let stockHasMore = true;
+let stockLoading = false;
+let stockRequestId = 0;
+
+function esc(s){ const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
+function toast(msg, err){
+  const t=$('toast'); t.textContent=msg; t.className='toast'+(err?' err':''); t.style.display='block';
+  clearTimeout(toast.t); toast.t=setTimeout(()=>t.style.display='none',3500);
+}
+async function api(url, opts){
+  const r = await fetch(url, Object.assign({cache:'no-store'}, opts));
+  const j = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.error||'Something went wrong');
+  return j;
+}
+function openModal(id){ $(id).classList.add('open'); }
+function closeModal(id){ $(id).classList.remove('open'); }
+
+['packet','qty','addQty'].forEach(id=>{
+  $(id).addEventListener('input',e=>{ e.target.value=e.target.value.replace(/\D/g,''); });
+});
+$('variant').addEventListener('input',e=>{ e.target.value=e.target.value.toUpperCase(); });
+
+document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
+  document.querySelectorAll('section').forEach(s=>s.classList.toggle('on',s.id===b.dataset.tab));
+  if(b.dataset.tab==='list') loadList();
+}));
+
+function showImg(){
+  const src = localPreview || shopifyThumbnail || shopifyImage;
+  $('imgBox').innerHTML = src
+    ? `<div class="chip"><img class="thumb" src="${esc(src)}" alt="" loading="lazy" decoding="async"><button type="button" class="x" onclick="clearImg()" aria-label="Remove image">&times;</button></div>`
+    : '';
+}
+function clearImg(){ shopifyImage=''; shopifyThumbnail=''; localPreview=''; $('file').value=''; showImg(); }
+$('pickImg').addEventListener('click',()=>$('file').click());
+$('file').addEventListener('change',e=>{
+  const f=e.target.files[0];
+  if(f){ localPreview=URL.createObjectURL(f); showImg(); }
+});
+
+function applyProduct(p){
+  $('sku').value = p.sku || '';
+  $('ptype').value = p.product_type || p.title;
+  $('vendor').value = p.vendor;
+  shopifyImage = p.image_url || '';
+  shopifyThumbnail = p.thumbnail_url || shopifyImage;
+  $('file').value=''; localPreview='';
+  $('lookupNote').textContent = 'Selected from Shopify: ' + p.title + (p.variant_title ? ' (' + p.variant_title + ')' : '');
+  $('lookupNote').className = 'note found';
+  showImg();
+}
+
+let lookupInProgress=false;
+async function search(){
+  if(lookupInProgress) return;
+  let sku=$('search').value.trim();
+  if(!sku) return toast('Enter a SKU or Product Type first',true);
+  if($('autoScan').checked && sku!==autoNormalizedSku && !/\s/.test(sku) && sku.length>4 && /\d{4}$/.test(sku)){
+    sku=sku.slice(0,-4);
+    $('search').value=sku;
+    autoNormalizedSku=sku;
+  }
+  const btn=$('searchBtn'); btn.disabled=true;
+  lookupInProgress=true;
+  $('lookupNote').textContent='Searching...'; $('lookupNote').className='note';
+  try{
+    const r=await api('/api/lookup?q='+encodeURIComponent(sku));
+    showLookupResults(r.products);
+  }catch(e){ toast(e.message,true); $('lookupNote').textContent=''; }
+  finally{ lookupInProgress=false; btn.disabled=false; }
+}
+function showLookupResults(products){
+  found=products;
+  if(found.length===0){
+    $('lookupNote').textContent='No Shopify match found. Try a SKU or Product Type, or enter the details manually.';
+    $('lookupNote').className='note miss';
+  }else if(found.length===1){
+    applyProduct(found[0]);
+  }else{
+    $('lookupNote').textContent=found.length+' products found. Pick one.';
+    $('lookupNote').className='note found';
+    openPicker();
+  }
+}
+function openPicker(){
+  $('pickNote').textContent = found.length + ' Shopify matches found. Select the correct product and SKU.';
+  $('picks').innerHTML = found.map((p,i)=>`
+    <button class="pick" onclick="choose(${i})">
+      ${p.thumbnail_url||p.image_url?`<img src="${esc(p.thumbnail_url||p.image_url)}" alt="" loading="lazy" decoding="async">`:'<div class="ph">No image</div>'}
+      <div class="t">${esc(p.title)}</div>
+      <div class="s">SKU: ${esc(p.sku || 'Not set')}</div>
+      <div class="s">${esc(p.product_type)}${p.variant_title?' · '+esc(p.variant_title):''}</div>
+      <div class="s">${esc(p.vendor)}</div>
+    </button>`).join('');
+  openModal('pickModal');
+}
+function choose(i){ applyProduct(found[i]); closeModal('pickModal'); }
+
+$('searchBtn').addEventListener('click',search);
+$('search').addEventListener('keydown',e=>{ if(e.key==='Enter') search(); });
+$('search').addEventListener('input',()=>{ autoNormalizedSku=''; });
+
+$('saveBtn').addEventListener('click',async()=>{
+  const sku=$('sku').value.trim();
+  if(!sku) return toast('Enter a SKU',true);
+  if(!$('packet').value) return toast('Enter a Packet Number',true);
+  if(!$('qty').value || +$('qty').value<1) return toast('Enter a Qty',true);
+  const fd=new FormData();
+  fd.append('sku',sku);
+  fd.append('product_name',$('ptype').value.trim());
+  fd.append('brand',$('vendor').value.trim());
+  fd.append('packet_no',$('packet').value);
+  fd.append('qty',$('qty').value);
+  fd.append('variant',$('variant').value.trim().toUpperCase());
+  const f=$('file').files[0];
+  if(f) fd.append('image',f); else if(shopifyImage) fd.append('image_url',shopifyImage);
+  const btn=$('saveBtn'); btn.disabled=true; btn.textContent='Saving...';
+  try{
+    const r=await api('/api/stock',{method:'POST',body:fd});
+    toast(r.merged?'Qty added to existing stock':'Stock saved'); loadList();
+    ['search','sku','ptype','vendor','packet','qty','variant'].forEach(id=>$(id).value='');
+    autoNormalizedSku='';
+    $('file').value=''; shopifyImage=''; shopifyThumbnail=''; localPreview=''; found=[]; $('lookupNote').textContent=''; showImg();
+  }catch(e){ toast(e.message,true); }
+  btn.disabled=false; btn.textContent='Save Stock';
+});
+
+let qTimer;
+$('q').addEventListener('input',()=>{ clearTimeout(qTimer); qTimer=setTimeout(()=>loadList(true),150); });
+
+async function loadList(reset=true){
+  if(reset){
+    stockRequestId++;
+    stockOffset=0;
+    stockHasMore=true;
+    stockLoading=false;
+    items=[];
+    $('rows').innerHTML='';
+  }else if(stockLoading || !stockHasMore){
+    return;
+  }
+  const requestId=stockRequestId;
+  const offset=stockOffset;
+  const q=$('q').value.trim();
+  stockLoading=true;
+  $('listStatus').textContent='Loading...';
+  try{
+    const data=await api('/api/stock?q='+encodeURIComponent(q)+'&limit='+stockPageSize+'&offset='+offset);
+    if(requestId!==stockRequestId) return;
+    const page=Array.isArray(data.items)?data.items:[];
+    items=reset?page:items.concat(page);
+    stockOffset+=page.length;
+    stockHasMore=Boolean(data.hasMore);
+    render();
+    $('listStatus').textContent=stockHasMore?'Scroll for more stock':'';
+  }catch(e){
+    if(requestId!==stockRequestId) return;
+    if(reset){
+      items=[];
+      $('rows').innerHTML='<tr><td colspan="8" class="empty">Could not load stock: '+esc(e.message)+'</td></tr>';
+      $('listStatus').textContent='';
+    }else{
+      $('listStatus').textContent='Could not load more stock. Scroll to retry.';
+    }
+    toast(e.message,true);
+  }finally{
+    if(requestId===stockRequestId) stockLoading=false;
+  }
+}
+
+const stockObserver=new IntersectionObserver(entries=>{
+  if(entries.some(entry=>entry.isIntersecting)) loadList(false);
+},{rootMargin:'250px'});
+stockObserver.observe($('listStatus'));
+function render(){
+  const tb=$('rows');
+  if(!items.length){ tb.innerHTML='<tr><td colspan="8" class="empty">No stock found</td></tr>'; return; }
+  tb.innerHTML=items.map(i=>`
+    <tr>
+      <td>${esc(i.sku)}</td>
+      <td>${esc(i.product_name)}</td>
+      <td class="hide-m">${esc(i.brand)}</td>
+      <td>${esc(i.packet_no)}</td>
+      <td>${i.image_url?`<img class="thumb" src="${esc(i.image_url)}" alt="" loading="lazy" decoding="async" onclick="viewItem('${i.id}')">`:'—'}</td>
+      <td class="qty ${i.qty<=0?'zero':''}">${i.qty}</td>
+      <td>${esc(i.variant || '')}</td>
+      <td class="action-cell"><div class="acts">
+        <button class="a sale" onclick="doSale('${i.id}')">Sale</button>
+        <button class="a add" onclick="askAdd('${i.id}')">Add</button>
+        <button class="a del" onclick="askDelete('${i.id}')">Delete</button>
+      </div></td>
+    </tr>`).join('');
+}
+function viewItem(id){
+  const i=items.find(x=>x.id===id); if(!i||!i.image_url) return;
+  $('viewBody').innerHTML=`<img class="full-image" src="${esc(i.image_url)}" alt="Product image" decoding="async">`;
+  openModal('viewModal');
+}
+
+async function doSale(id){
+  try{ await api(`/api/stock/${id}/sale`,{method:'POST'}); toast('Sold. Qty reduced by 1'); loadList(); }
+  catch(e){ toast(e.message,true); }
+}
+function askAdd(id){ current=id; $('addQty').value=''; openModal('addModal'); setTimeout(()=>$('addQty').focus(),50); }
+$('addOk').addEventListener('click',async()=>{
+  const n=$('addQty').value;
+  if(!n||+n<1) return toast('Enter 1 or more',true);
+  try{
+    await api(`/api/stock/${current}/add`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({qty:n})});
+    closeModal('addModal'); toast('Stock increased'); loadList();
+  }catch(e){ toast(e.message,true); }
+});
+function askDelete(id){
+  current=id; const i=items.find(x=>x.id===id);
+  $('delText').textContent=`All data and the image for SKU ${i.sku} will be permanently deleted.`;
+  openModal('delModal');
+}
+$('delOk').addEventListener('click',async()=>{
+  const b=$('delOk'); b.disabled=true;
+  try{ await api(`/api/stock/${current}`,{method:'DELETE'}); closeModal('delModal'); toast('Deleted'); loadList(); }
+  catch(e){ toast(e.message,true); }
+  b.disabled=false;
+});
+document.querySelectorAll('.modal').forEach(m=>m.addEventListener('click',e=>{ if(e.target===m) m.classList.remove('open'); }));
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal('viewModal'); });
+</script>
+</body>
+</html>
